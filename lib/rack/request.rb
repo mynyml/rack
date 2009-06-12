@@ -55,6 +55,42 @@ module Rack
         inject({}) { |hash,(k,v)| hash[k.downcase] = v ; hash }
     end
 
+    # The media types of the HTTP_ACCEPT header ordered according to their
+    # "quality" (preference level), without any media type parameters.
+    #
+    # ===== Example
+    #
+    #   env['HTTP_ACCEPT']  #=> 'application/xml;q=0.8,text/html,text/plain;q=0.9'
+    #
+    #   req = Rack::Request.new(env)
+    #   req.accept_media_types          #=> ['text/html', 'text/plain', 'application/xml']
+    #   req.accept_media_types.prefered #=>  'text/html'
+    #
+    # For more information, see:
+    # * Acept header:   http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.1
+    # * Quality values: http://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html#sec3.9
+    #--
+    # memoize?
+    def accept_media_types
+      header = @env['HTTP_ACCEPT']
+      return ['*/*'] if header.nil?
+
+      types = header.split(',').map {|type| type.strip }
+      types = types.reverse.sort {|a,b| media_type_quality(a) <=> media_type_quality(b) }.reverse
+      types = types.select {|type| media_type_quality(type).between?(0.1, 1) }
+      types = types.map {|type| type.split(';').first }
+
+      def types.prefered() first end
+      types
+    end
+
+    def media_type_quality(type) #:nodoc:
+      params = type.split(';')[1..-1]
+      q = params.detect {|p| p.match(/q=\d\.?\d{0,3}/) }
+      q ? q.split('=').last.to_f : 1.0
+    end
+    private :media_type_quality
+
     # The character set of the request body if a "charset" media type
     # parameter was given, or nil if no "charset" was specified. Note
     # that, per RFC2616, text/* media types that specify no explicit
