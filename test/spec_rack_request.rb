@@ -27,6 +27,8 @@ context "Rack::Request" do
 
     req.content_length.should.equal "0"
     req.content_type.should.be.nil
+
+    req.accept_media_types.should.equal ["*/*"]
   end
 
   specify "can figure out the correct host" do
@@ -445,6 +447,12 @@ EOF
     parser.call("gzip;q=1.0, identity; q=0.5, *;q=0").should.equal([["gzip", 1.0], ["identity", 0.5], ["*", 0] ])
 
     lambda { parser.call("gzip ; q=1.0") }.should.raise(RuntimeError)
+  end
+
+  # See test/spec_rack_request_accept_media_types.rb for full set of specs
+  specify "should parse Accept media types correctly" do
+    Rack::Request.new({}).accept_media_types.should.be.a.kind_of(Rack::Request::AcceptMediaTypes)
+    Rack::Request.new({}).accept_media_types.should.respond_to(:prefered)
   end
 
   specify 'should provide ip information' do

@@ -14,6 +14,8 @@ module Rack
   # object doesn't already exist.
 
   class Request
+    autoload :AcceptMediaTypes, 'rack/request/accept_media_types'
+
     # The environment of the request.
     attr_reader :env
 
@@ -53,6 +55,25 @@ module Rack
       content_type.split(/\s*[;,]\s*/)[1..-1].
         collect { |s| s.split('=', 2) }.
         inject({}) { |hash,(k,v)| hash[k.downcase] = v ; hash }
+    end
+
+    # The media types of the HTTP_ACCEPT header ordered according to their
+    # "quality" (preference level), without any media type parameters.
+    #
+    # ===== Example
+    #
+    #   env['HTTP_ACCEPT']  #=> 'application/xml;q=0.8,text/html,text/plain;q=0.9'
+    #
+    #   req = Rack::Request.new(env)
+    #   req.accept_media_types          #=> ['text/html', 'text/plain', 'application/xml']
+    #   req.accept_media_types.prefered #=>  'text/html'
+    #
+    # For more information, see:
+    # * Acept header:   http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.1
+    # * Quality values: http://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html#sec3.9
+
+    def accept_media_types
+      AcceptMediaTypes.new(@env["HTTP_ACCEPT"])
     end
 
     # The character set of the request body if a "charset" media type
