@@ -77,7 +77,7 @@ module Rack
 
       types = header.split(',').map {|type| type.strip }
       types = types.reverse.sort {|a,b| media_type_quality(a) <=> media_type_quality(b) }.reverse
-      types = types.select {|type| media_type_quality(type).between?(0.1, 1) }
+      types = types.select {|type| media_type_quality(type).between?(0.001, 1) }
       types = types.map {|type| type.split(';').first }
 
       def types.prefered() first end

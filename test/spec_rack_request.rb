@@ -545,6 +545,14 @@ EOF
       @parser.call(header).should.equal(%w( text/html ))
     end
 
+    specify "quality values are valid with up to three decimal digits" do
+      header = 'text/html;q=0.001'
+      @parser.call(header).should.equal(%w( text/html ))
+
+      header = 'text/html;q=0.0001'
+      @parser.call(header).should.equal([])
+    end
+
     specify "custom media types are NOT ignored" do
       # verifying that the media types exist in Rack::Mime::MIME_TYPES is
       # explicitly outside the scope of this library.
