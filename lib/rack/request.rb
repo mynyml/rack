@@ -55,6 +55,47 @@ module Rack
         inject({}) { |hash,(k,v)| hash[k.downcase] = v ; hash }
     end
 
+    # The media types of the HTTP_ACCEPT header ordered according to their
+    # "quality" (preference level), without any media type parameters.
+    #
+    # Especially useful for content negotiation.
+    #
+    # ===== Example
+    #
+    #   env['HTTP_ACCEPT']  #=> 'application/xml;q=0.8,text/html,text/plain;q=0.9'
+    #
+    #   req = Rack::Request.new(env)
+    #   req.accept          #=> ['text/html', 'text/plain', 'application/xml']
+    #   req.accept.prefered #=>  'text/html'
+    #
+    # For more information, see:
+    # http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.1
+    #
+    def accept
+      # immediately return cached copy of parsed accept header if it exists,
+      # unless header has changed
+      if !@env['rack.request.accept'].nil? &&
+          @env['rack.request.accept_string'] == @env['HTTP_ACCEPT']
+        return @env['rack.request.accept']
+      end
+
+      types =
+        if @env['HTTP_ACCEPT'].nil?
+          ['*/*']
+        else
+          @env['HTTP_ACCEPT'].split(',').
+            map {|type| Rack::Mime::MimeType.new(type) }.
+            reverse.sort.reverse.
+            select {|type| type.valid? }.
+            map {|type| type.range }
+        end
+
+      def types.prefered() first end
+
+      @env['rack.request.accept_string'] = @env['HTTP_ACCEPT']
+      @env['rack.request.accept'] = types
+    end
+
     # The character set of the request body if a "charset" media type
     # parameter was given, or nil if no "charset" was specified. Note
     # that, per RFC2616, text/* media types that specify no explicit

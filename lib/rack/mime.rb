@@ -200,5 +200,116 @@ module Rack
       ".yml"     => "text/yaml",
       ".zip"     => "application/zip",
     }
+
+    # Parses a raw mime type string into attributes
+    #
+    # Allows comparison of mime type precedence based on quality and
+    # specificity.
+    #
+    # ===== Examples
+    #
+    #   type = MimeType.new('text/html;key=value;q=0.5')
+    #   type.range    #=> 'text/html'
+    #   type.params   #=> {'key' => 'value'}
+    #   type.quality  #=> 0.5
+    #   type.valid?   #=> true
+    #
+    #   type = MimeType.new('text/html')
+    #   type.quality  #=> 1.0   #default quality is 1
+    #
+    #   type = MimeType.new('text/html;q=2')
+    #   type.valid?   #=> false #quality must fall between 0.001 and 1
+    #
+    # See MimeType#<=> for examples of comparison.
+    #
+    # For more information, see:
+    # * Acept header:   http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.1
+    # * Quality values: http://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html#sec3.9
+    #
+    class MimeType
+      include Comparable
+
+      # 'type/subtype'
+      attr_accessor :range
+
+      # 'a=b;c=d' as hash
+      attr_accessor :params
+
+      # 'q=0.5' as float
+      attr_accessor :quality
+
+      def initialize(raw)
+        range, *params = raw.split(';')
+        self.range     = range.to_s.strip
+        self.params    = parse_params(params)
+        self.quality   = self.params.delete('q') { 1.0 }.to_f
+      end
+
+      # Compare mime type precedence according to quality and specificity.
+      #
+      # Quality alone is enough to determine precedence, but the comparison
+      # will fallback on specificity if quality is equal and ranges are
+      # equivalent (where equivalent means of the same range group; i.e.
+      # text/html ~ text/* ~ */*).
+      #
+      # According to rfc2616-sec14.1:
+      #
+      #   Quality factors [...] indicate the relative degree of preference for
+      #   that media-range
+      #
+      # and
+      #
+      #   Media ranges can be overridden by more specific media ranges or
+      #   specific media types. If more than one media range applies to a given
+      #   type, the most specific reference has precedence.
+      #
+      # ===== Examples
+      #
+      #   type1 = MimeType.new('text/html; q=0.8')
+      #   type2 = MimeType.new('text/plain;q=0.9')
+      #   type1 < type2   #=> true  #greater quality value
+      #
+      #   type1 = MimeType.new('text/html')
+      #   type2 = MimeType.new('text/*')
+      #   type1 < type2   #=> true  #greater specificity
+      #
+      #   type1 = MimeType.new('text/html')
+      #   type2 = MimeType.new('application/*')
+      #   type1 < type2   #=> false
+      #   type1 == type2  #=> true  #non-equivalent ranges, specificity ignored
+      #
+      def <=>(mime_type)
+        comp = self.quality <=> mime_type.quality
+        if comp == 0 && self.range.match(mime_type.range.gsub(/\*/,'.*'))
+          comp = self.specificity <=> mime_type.specificity
+        end
+        comp
+      end
+
+      #--
+      # Specificity score. 100 is arbitrary, but assumes a mime type is
+      # unlikely to include 100+ parameters.
+      def specificity #:nodoc:
+        n = 0
+        n -= 100 if self.range.split('/')[0].strip == '*'
+        n -= 100 if self.range.split('/')[1].strip == '*'
+        n += self.params.size
+        n
+      end
+
+      def valid?
+        self.quality.between?(0.001, 1)
+      end
+
+      private
+        # turn string list of params into hash
+        def parse_params(params)
+          params.inject({}) do |map, p|
+            name, value = p.split('=')
+            map[name.to_s.strip] = value.to_s.strip
+            map
+          end
+        end
+    end
   end
 end
