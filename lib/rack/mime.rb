@@ -201,11 +201,41 @@ module Rack
       ".zip"     => "application/zip",
     }
 
+    # Parses a raw mime type string into attributes
+    #
+    # Allows comparison of mime type precedence based on quality and
+    # specificity.
+    #
+    # ===== Examples
+    #
+    #   type = MimeType.new('text/html;key=value;q=0.5')
+    #   type.range    #=> 'text/html'
+    #   type.params   #=> {'key' => 'value'}
+    #   type.quality  #=> 0.5
+    #   type.valid?   #=> true
+    #
+    #   type = MimeType.new('text/html')
+    #   type.quality  #=> 1.0   #default quality is 1
+    #
+    #   type = MimeType.new('text/html;q=2')
+    #   type.valid?   #=> false #quality must fall between 0.001 and 1
+    #
+    # See MimeType#<=> for examples of comparison.
+    #
+    # For more information on HTTP specs, see:
+    # * Acept header:   http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.1
+    # * Quality values: http://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html#sec3.9
+    #
     class MimeType
       include Comparable
 
+      # 'type/subtype'
       attr_accessor :range
+
+      # 'a=b;c=d' as hash
       attr_accessor :params
+
+      # 'q=0.5' as float
       attr_accessor :quality
 
       def initialize(raw)
@@ -215,15 +245,40 @@ module Rack
         self.quality   = self.params.delete('q') { 1.0 }.to_f
       end
 
-      def <=>(media_type)
-        comp = self.quality <=> media_type.quality
-        if comp == 0 && self.range.match(media_type.range.gsub(/\*/,'.*'))
-          comp = self.specificity <=> media_type.specificity
+      # Compare mime type precedence according to quality and specificity.
+      #
+      # Quality alone is enough to determine precedence, but the comparison
+      # will fallback on specificity if quality is equal and ranges are
+      # equivalent (where equivalent means of the same range group; i.e.
+      # text/html ~ text/* ~ */*).
+      #
+      # ===== Examples
+      #
+      #   type1 = MimeType.new('text/html; q=0.8')
+      #   type2 = MimeType.new('text/plain;q=0.9')
+      #   type1 < type2   #=> true  #greater quality value
+      #
+      #   type1 = MimeType.new('text/html')
+      #   type2 = MimeType.new('text/*')
+      #   type1 < type2   #=> true  #greater specificity
+      #
+      #   type1 = MimeType.new('text/html')
+      #   type2 = MimeType.new('application/*')
+      #   type1 < type2   #=> false
+      #   type1 == type2  #=> true  #non-equivalent ranges, specificity ignored
+      #
+      def <=>(mime_type)
+        comp = self.quality <=> mime_type.quality
+        if comp == 0 && self.range.match(mime_type.range.gsub(/\*/,'.*'))
+          comp = self.specificity <=> mime_type.specificity
         end
         comp
       end
 
-      def specificity
+      #--
+      # Specificity score. 100 is arbitrary, but assumes a mime type is
+      # unlikely to include 100+ parameters.
+      def specificity #:nodoc:
         n = 0
         n -= 100 if self.range.split('/')[0].strip == '*'
         n -= 100 if self.range.split('/')[1].strip == '*'
@@ -236,6 +291,7 @@ module Rack
       end
 
       private
+        # turn string list of params into hash
         def parse_params(params)
           params.inject({}) do |map, p|
             name, value = p.split('=')

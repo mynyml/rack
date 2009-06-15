@@ -65,15 +65,14 @@ module Rack
     #   env['HTTP_ACCEPT']  #=> 'application/xml;q=0.8,text/html,text/plain;q=0.9'
     #
     #   req = Rack::Request.new(env)
-    #   req.accept_media_types          #=> ['text/html', 'text/plain', 'application/xml']
-    #   req.accept_media_types.prefered #=>  'text/html'
+    #   req.accepts          #=> ['text/html', 'text/plain', 'application/xml']
+    #   req.accepts.prefered #=>  'text/html'
     #
     # For more information, see:
-    # * Acept header:   http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.1
-    # * Quality values: http://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html#sec3.9
+    # http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.1
     #--
-    # memoize?
-    def accept_media_types
+    # memoize? cache?
+    def accepts
       header = @env['HTTP_ACCEPT']
       return ['*/*'] if header.nil?
 
