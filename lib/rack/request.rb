@@ -75,21 +75,15 @@ module Rack
       header = @env['HTTP_ACCEPT']
       return ['*/*'] if header.nil?
 
-      types = header.split(',').map {|type| type.strip }
-      types = types.reverse.sort {|a,b| media_type_quality(a) <=> media_type_quality(b) }.reverse
-      types = types.select {|type| media_type_quality(type).between?(0.001, 1) }
-      types = types.map {|type| type.split(';').first }
+      types = header.split(',').
+              map {|type| Rack::Mime::MimeType.new(type) }.
+              reverse.sort.reverse.
+              select {|type| type.valid? }.
+              map {|type| type.range }
 
       def types.prefered() first end
       types
     end
-
-    def media_type_quality(type) #:nodoc:
-      params = type.split(';')[1..-1]
-      q = params.detect {|p| p.match(/q=\d\.?\d{0,3}/) }
-      q ? q.split('=').last.to_f : 1.0
-    end
-    private :media_type_quality
 
     # The character set of the request body if a "charset" media type
     # parameter was given, or nil if no "charset" was specified. Note

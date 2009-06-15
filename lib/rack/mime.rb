@@ -200,5 +200,48 @@ module Rack
       ".yml"     => "text/yaml",
       ".zip"     => "application/zip",
     }
+
+    class MimeType
+      include Comparable
+
+      attr_accessor :range
+      attr_accessor :params
+      attr_accessor :quality
+
+      def initialize(raw)
+        range, *params = raw.split(';')
+        self.range     = range.to_s.strip
+        self.params    = parse_params(params)
+        self.quality   = self.params.delete('q') { 1.0 }.to_f
+      end
+
+      def <=>(media_type)
+        comp = self.quality <=> media_type.quality
+        return comp unless comp == 0
+
+        self.specificity <=> media_type.specificity
+      end
+
+      def specificity
+        n = 0
+        n -= 100 if self.range.split('/')[0].strip == '*'
+        n -= 100 if self.range.split('/')[1].strip == '*'
+        n += self.params.size
+        n
+      end
+
+      def valid?
+        self.quality.between?(0.001, 1)
+      end
+
+      private
+        def parse_params(params)
+          params.inject({}) do |map, p|
+            name, value = p.split('=')
+            map[name.to_s.strip] = value.to_s.strip
+            map
+          end
+        end
+    end
   end
 end
