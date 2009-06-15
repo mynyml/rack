@@ -58,6 +58,8 @@ module Rack
     # The media types of the HTTP_ACCEPT header ordered according to their
     # "quality" (preference level), without any media type parameters.
     #
+    # Especially useful for content negotiation.
+    #
     # ===== Example
     #
     #   env['HTTP_ACCEPT']  #=> 'application/xml;q=0.8,text/html,text/plain;q=0.9'

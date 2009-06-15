@@ -217,9 +217,10 @@ module Rack
 
       def <=>(media_type)
         comp = self.quality <=> media_type.quality
-        return comp unless comp == 0
-
-        self.specificity <=> media_type.specificity
+        if comp == 0 && self.range.match(media_type.range.gsub(/\*/,'.*'))
+          comp = self.specificity <=> media_type.specificity
+        end
+        comp
       end
 
       def specificity

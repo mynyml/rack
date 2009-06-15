@@ -61,7 +61,7 @@ context "Rack::Mime" do
         a.should.be > b
 
         a = Type.new('text/html')
-        b = Type.new('application/*')
+        b = Type.new('text/*')
         a.should.be > b
 
         a = Type.new('text/*')
@@ -69,20 +69,22 @@ context "Rack::Mime" do
         a.should.be > b
 
         a = Type.new('text/html;k=v')
-        b = Type.new('application/json')
+        b = Type.new('text/html')
         a.should.be > b
 
         a = Type.new('text/html;a=b;x=y')
-        b = Type.new('application/xml;k=v')
+        b = Type.new('text/html;k=v')
         a.should.be > b
 
         a = Type.new('text/*;k=v')
-        b = Type.new('application/*')
+        b = Type.new('text/*')
         a.should.be > b
+      end
 
+      specify "specificity is ignored when ranges are not equivalent" do
         a = Type.new('text/html')
-        b = Type.new('application/*;k=v')
-        a.should.be > b
+        b = Type.new('application/*')
+        a.should.equal(b)
       end
     end
   end
